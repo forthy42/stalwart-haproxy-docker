@@ -32,173 +32,13 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 └── README.md
 ```
 
-## 🔧 Configuration Files
+### Stalwart Configuration (Admin UI)
 
-### docker-compose.yml
-
-```yaml
-networks:
-  mailnet:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.10.0.0/24
-          gateway: 10.10.0.1
-
-services:
-  haproxy:
-    image: haproxy:alpine
-    restart: unless-stopped
-    network_mode: host                    # For real client IPs
-    cap_add:
-      - NET_BIND_SERVICE                  # For ports <1024
-    volumes:
-      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-      - ./hosts/hosts:/etc/hosts:ro
-    # No networks entry (host mode) - ports are mapped directly
-
-  stalwart:
-    image: stalwartlabs/stalwart:latest
-    restart: unless-stopped
-    container_name: stalwart
-    networks:
-      mailnet:
-        ipv4_address: 10.10.0.2           # Fixed IP
-    volumes:
-      - stalwart-etc:/etc/stalwart
-      - stalwart-data:/var/lib/stalwart
-    # No ports - Stalwart is only reachable internally
-
-volumes:
-  stalwart-etc:
-    external: true
-  stalwart-data:
-    external: true
+In Management -> Networks -> General scroll down to Proxy, Trusted Networks, and add those three:
 ```
-
-### haproxy/haproxy.cfg
-
-```haproxy
-global
-    daemon
-    maxconn 4096
-
-defaults
-    mode tcp
-    # Default timeouts for most services
-    timeout connect 5s
-    timeout client  30s
-    timeout server  30s
-
-# ---------------------------------------------------------------------
-# Frontends
-# ---------------------------------------------------------------------
-
-frontend smtp_in
-    bind :25
-    default_backend stalwart_smtp
-
-frontend submission_in
-    bind :587
-    default_backend stalwart_submission
-
-frontend smtps_in
-    bind :465
-    default_backend stalwart_submissions
-
-frontend imaps_in
-    bind :993
-    default_backend stalwart_imap
-
-frontend pop3s_in
-    bind :995
-    default_backend stalwart_pop3
-
-# ---------------------------------------------------------------------
-# Backends with service-specific timeouts
-# ---------------------------------------------------------------------
-
-# SMTP (Port 25) - longer timeout for manual testing
-backend stalwart_smtp
-    timeout client  300s   # 5 minutes for manual telnet sessions
-    timeout server  300s
-    server stalwart stalwart:10025 send-proxy-v2
-
-# Submission (Port 587) - normal timeout
-backend stalwart_submission
-    timeout client  60s
-    timeout server  60s
-    server stalwart stalwart:10587 send-proxy-v2
-
-# SMTPS (Port 465) - normal timeout
-backend stalwart_submissions
-    timeout client  60s
-    timeout server  60s
-    server stalwart stalwart:10465 send-proxy-v2
-
-# IMAP (Port 993) - very long timeout for IDLE support
-backend stalwart_imap
-    timeout client  3600s   # 1 hour for IMAP IDLE
-    timeout server  3600s
-    server stalwart stalwart:10143 send-proxy-v2
-
-# POP3 (Port 995) - normal timeout
-backend stalwart_pop3
-    timeout client  60s
-    timeout server  60s
-    server stalwart stalwart:10110 send-proxy-v2
-```
-
-### hosts/hosts
-
-```
-127.0.0.1       localhost
-::1             localhost ip6-localhost ip6-loopback
-10.10.0.2       stalwart
-```
-
-### Stalwart Configuration (config.toml or Admin UI)
-
-```toml
-[server.listener.smtp]
-bind = ["0.0.0.0:10025"]
-
-[server.listener.smtp.proxy]
-override = true
-trusted-networks.0 = "10.10.0.0/24"
-protocol = "PROXY"
-
-[server.listener.submission]
-bind = ["0.0.0.0:10587"]
-
-[server.listener.submission.proxy]
-override = true
-trusted-networks.0 = "10.10.0.0/24"
-protocol = "PROXY"
-
-[server.listener.submissions]
-bind = ["0.0.0.0:10465"]
-
-[server.listener.submissions.proxy]
-override = true
-trusted-networks.0 = "10.10.0.0/24"
-protocol = "PROXY"
-
-[server.listener.imap]
-bind = ["0.0.0.0:10143"]
-
-[server.listener.imap.proxy]
-override = true
-trusted-networks.0 = "10.10.0.0/24"
-protocol = "PROXY"
-
-[server.listener.pop3]
-bind = ["0.0.0.0:10110"]
-
-[server.listener.pop3.proxy]
-override = true
-trusted-networks.0 = "10.10.0.0/24"
-protocol = "PROXY"
+172.16.0.0/12
+fd00::/8
+10.0.0.0/8
 ```
 
 ## ⏱️ Timeout Configuration Explained
@@ -238,7 +78,7 @@ docker volume create stalwart-etc
 docker volume create stalwart-data
 
 # Clone repository
-git clone https://github.com/yourname/stalwart-haproxy-docker
+git clone https://github.com/forthy42/stalwart-haproxy-docker
 cd stalwart-haproxy-docker
 
 # Make scripts executable

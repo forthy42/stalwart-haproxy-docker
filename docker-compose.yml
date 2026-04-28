@@ -16,22 +16,21 @@ services:
     restart: unless-stopped
     container_name: stalwart-mail
     networks:
-      - internal   # Only internel Network – no hosts ports!
+      mailnet:   # Only internel Network – no hosts ports!
+        ipv4_address: 10.42.37.2           # Fixed IP
     volumes:
       - stalwart-etc:/etc/stalwart
       - stalwart-data:/var/lib/stalwart
-      - stalwart-log:/var/log/stalwart
+    # No ports - Stalwart is only reachable internally
 
 volumes:
   stalwart-etc:
     external: true
   stalwart-data:
     external: true
-  stalwart-log:
-    external: true
 
 networks:
-  internal:
+  mailnet:
     driver: bridge
     ipam:
       config:
