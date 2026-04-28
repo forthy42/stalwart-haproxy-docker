@@ -29,6 +29,8 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 ├── scripts/
 │   ├── setup.sh
 │   └── backup.sh
+├── lighttpd/
+│   └── 9-mail.conf
 └── README.md
 ```
 
