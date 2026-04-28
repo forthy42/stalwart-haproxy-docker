@@ -22,9 +22,9 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 ```
 .
 ├── docker-compose.yml
-├── haproxy/
-│   └── haproxy.cfg
-├── hosts/
+├── etc/
+│   ├── haproxy/
+│   │   └── haproxy.cfg
 │   └── hosts
 ├── scripts/
 │   ├── setup.sh

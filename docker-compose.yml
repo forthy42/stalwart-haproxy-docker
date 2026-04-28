@@ -7,8 +7,8 @@ services:
     cap_add:
       - NET_BIND_SERVICE
     volumes:
-      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-      - ./hosts:/etc/hosts:ro
+      - ./etc/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./etc/hosts:/etc/hosts:ro
     user: root
 
   stalwart:
@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
     container_name: stalwart-mail
     networks:
-      - internal   # NUR internes Netzwerk – keine Host-Ports mehr!
+      - internal   # Only internel Network – no hosts ports!
     volumes:
       - stalwart-etc:/etc/stalwart
       - stalwart-data:/var/lib/stalwart
@@ -35,5 +35,5 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 10.42.37.0/24        # Ihr gewünschter fester IP-Bereich
-          gateway: 10.42.37.1          # Gateway/Nameserver für dieses Netzwerk
+        - subnet: 10.42.37.0/24        # The fixed sub-network
+          gateway: 10.42.37.1          # Gateway for that network
