@@ -113,10 +113,10 @@ Stalwart Admin Web Interface: https://mail.<your-domain>/admin
 **Solution:** Connect once manually via telnet:
 
 ```bash
-telnet your-server.com 25
+telnet mail.your-domain 25
 EHLO example.org
 MAIL FROM: <example@example.org>
-RCPT TO: <somenone@primary-domain-name>
+RCPT TO: <real-user@your-domain>
 QUIT
 ```
 
@@ -187,10 +187,10 @@ docker logs stalwart | grep -i "remoteIp"
 
 ### Test SMTP directly
 ```bash
-telnet your-server.com 25
-EHLO test.com
-MAIL FROM: <test@test.com>
-RCPT TO: <real-user@your-domain.com>
+telnet mail.your-domain 25
+EHLO example.org
+MAIL FROM: <example@example.org>
+RCPT TO: <real-user@your-domain>
 DATA
 Subject: Test
 
