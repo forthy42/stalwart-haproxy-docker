@@ -99,13 +99,10 @@ backend stalwart_imap
 git clone https://github.com/forthy42/stalwart-haproxy-docker
 cd stalwart-haproxy-docker
 
-# Make scripts executable
-chmod +x scripts/*.sh
-
 # Run setup
 ./scripts/setup.sh
 ```
-Stalwart Admin Interface: https://mail.<your-domain>/admin
+Stalwart Admin Web Interface: https://mail.<your-domain>/admin
 
 ## ⚠️ Known Issues and Solutions
 
@@ -208,12 +205,8 @@ This setup is based on community experience from:
 - PROXY protocol with Docker and HAProxy
 - Netcup specifics (port 25, DNS API)
 - Dynamic IP issues in Docker networks
-- Deepseek wrote the README
+- Deepseek wrote part of the README and scripts
 
 ## 📄 License
 
 MIT
-
----
-
-The scripts `scripts/setup.sh` and `scripts/backup.sh` are included in the repository. Make them executable with `chmod +x scripts/*.sh` before running.
