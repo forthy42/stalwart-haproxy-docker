@@ -28,11 +28,11 @@ echo -e "${YELLOW}⚠️ $*${NC}"
 }
 
 # Check if docker runs
-test ! docker info > /dev/null 2>&1 || error "Docker doesn't run. Please start docker and retry."
+test docker info > /dev/null 2>&1 || error "Docker doesn't run. Please start docker and retry."
 success "Docker runs"
 
 # Check if docker compose is available
-test ! docker compose version > /dev/null 2>&1 || error "Docker Compose not available. Please install"
+test docker compose version > /dev/null 2>&1 || error "Docker Compose not available. Please install"
 success "Docker Compose available"
 
 # Create volumes if available
@@ -43,9 +43,9 @@ docker volume create stalwart-data > /dev/null 2>&1 || true
 success "Volumes created/already available"
 
 # Check if config files are available
-test ! -f "./etc/hosts" || error "hosts file not available"
-test ! -f "./etc/haproxy/haproxy.cfg" || error "haproxy.cfg file not available"
-test ! -f "./docker-compose.yml" ] || error "docker-compose.yml not found!"
+test -f "./etc/hosts" || error "hosts file not available"
+test -f "./etc/haproxy/haproxy.cfg" || error "haproxy.cfg file not available"
+test -f "./docker-compose.yml" ] || error "docker-compose.yml not found!"
 
 # Container starten
 echo ""
