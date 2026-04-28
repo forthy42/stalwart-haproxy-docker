@@ -102,7 +102,11 @@ cd stalwart-haproxy-docker
 # Run setup
 ./scripts/setup.sh
 ```
-Stalwart Admin Web Interface: https://mail.<your-domain>/admin
+
+Replace ${DOMAIN} in the rest of the text here with your actual domain, and
+${USER} with the user name(s).
+
+Stalwart Admin Web Interface: https://mail.${DOMAIN}/admin
 
 ## ⚠️ Known Issues and Solutions
 
@@ -113,10 +117,10 @@ Stalwart Admin Web Interface: https://mail.<your-domain>/admin
 **Solution:** Connect once manually via telnet:
 
 ```bash
-telnet mail.your-domain 25
+telnet mail.${DOMAIN} 25
 EHLO example.org
 MAIL FROM: <example@example.org>
-RCPT TO: <real-user@your-domain>
+RCPT TO: <${USER}@${DOMAIN}>
 QUIT
 ```
 
@@ -187,10 +191,10 @@ docker logs stalwart | grep -i "remoteIp"
 
 ### Test SMTP directly
 ```bash
-telnet mail.your-domain 25
+telnet mail.${DOMAIN} 25
 EHLO example.org
 MAIL FROM: <example@example.org>
-RCPT TO: <real-user@your-domain>
+RCPT TO: <${USER}@${DOMAIN}>
 DATA
 Subject: Test
 
