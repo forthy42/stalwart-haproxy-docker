@@ -1,23 +1,23 @@
-# Stalwart Mailserver mit HAProxy und Docker
+# Stalwart Mailserver with HAProxy and Docker
 
-Eine vollständige, produktionsreife Docker-Konfiguration für Stalwart Mailserver hinter HAProxy mit PROXY-Protokoll-Unterstützung. Löst die Probleme mit echten Client-IPs, Docker-NAT und dynamischen IP-Adressen.
+A complete, production-ready Docker configuration for Stalwart Mailserver behind HAProxy with PROXY protocol support. Solves the problems with real client IPs, Docker NAT, and dynamic IP addresses.
 
-## 🎯 Das Problem
+## 🎯 The Problem
 
-- Stalwart im Docker-Container hinter einem Reverse Proxy
-- Docker-NAT verschleiert die echten Client-IPs (SPF wird zu `softfail` mit `172.x.x.x`)
-- `network_mode: host` für HAProxy nötig (echte Client-IPs), aber dann fehlt der Docker-DNS
-- Dynamische Docker-IPs (`172.17.x.x`, `172.18.x.x`, ...) wandern bei jedem Restart
-- Stalwart benötigt `trusted-networks` mit stabilen IP-Bereichen
+- Stalwart in a Docker container behind a reverse proxy
+- Docker NAT hides real client IPs (SPF shows `softfail` with `172.x.x.x`, fail2ban inside the container will block that single address)
+- `network_mode: host` needed for HAProxy (real client IPs), but then Docker DNS is unavailable
+- Dynamic Docker IPs (`172.17.x.x`, `172.18.x.x`, ...) can change on every restart
+- Stalwart needs `trusted-networks` with stable IP ranges
 
-## ✅ Die Lösung
+## ✅ The Solution
 
-- **HAProxy** als TCP-Proxy mit PROXY-Protokoll v2 für SMTP, Submission, IMAP, POP3
-- **Fester IP-Bereich** via Docker IPAM (z.B. `10.10.0.0/24`) – keine wandernden IPs mehr
-- **/etc/hosts Mount** im HAProxy-Container für stabile Namensauflösung (umgeht Docker-DNS im Host-Modus)
-- **Trusted Networks** in Stalwart auf den festen IP-Bereich konfiguriert
+- **HAProxy** as TCP proxy with PROXY protocol v2 for SMTP, Submission, IMAP, POP3
+- **Fixed IP range** via Docker IPAM (e.g., `10.10.0.0/24`) – no more wandering IPs
+- **/etc/hosts mount** in HAProxy container for stable name resolution (bypasses Docker DNS in host mode)
+- **Trusted Networks** in Stalwart configured to the fixed IP range
 
-## 📁 Repository-Struktur
+## 📁 Repository Structure
 
 ```
 .
@@ -26,10 +26,13 @@ Eine vollständige, produktionsreife Docker-Konfiguration für Stalwart Mailserv
 │   └── haproxy.cfg
 ├── hosts/
 │   └── hosts
+├── scripts/
+│   ├── setup.sh
+│   └── backup.sh
 └── README.md
 ```
 
-## 🔧 Konfigurationen
+## 🔧 Configuration Files
 
 ### docker-compose.yml
 
@@ -46,13 +49,13 @@ services:
   haproxy:
     image: haproxy:alpine
     restart: unless-stopped
-    network_mode: host                    # Für echte Client-IPs
+    network_mode: host                    # For real client IPs
     cap_add:
-      - NET_BIND_SERVICE                  # Für Ports <1024
+      - NET_BIND_SERVICE                  # For ports <1024
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
       - ./hosts/hosts:/etc/hosts:ro
-    # Kein networks-Eintrag (host-Modus) - Ports werden direkt gemappt
+    # No networks entry (host mode) - ports are mapped directly
 
   stalwart:
     image: stalwartlabs/stalwart:latest
@@ -60,11 +63,11 @@ services:
     container_name: stalwart
     networks:
       mailnet:
-        ipv4_address: 10.10.0.2           # Feste IP
+        ipv4_address: 10.10.0.2           # Fixed IP
     volumes:
       - stalwart-etc:/etc/stalwart
       - stalwart-data:/var/lib/stalwart
-    # Keine ports: - Stalwart ist nur intern erreichbar
+    # No ports - Stalwart is only reachable internally
 
 volumes:
   stalwart-etc:
@@ -82,9 +85,14 @@ global
 
 defaults
     mode tcp
+    # Default timeouts for most services
     timeout connect 5s
-    timeout client  60s
-    timeout server  60s
+    timeout client  30s
+    timeout server  30s
+
+# ---------------------------------------------------------------------
+# Frontends
+# ---------------------------------------------------------------------
 
 frontend smtp_in
     bind :25
@@ -106,19 +114,38 @@ frontend pop3s_in
     bind :995
     default_backend stalwart_pop3
 
+# ---------------------------------------------------------------------
+# Backends with service-specific timeouts
+# ---------------------------------------------------------------------
+
+# SMTP (Port 25) - longer timeout for manual testing
 backend stalwart_smtp
+    timeout client  300s   # 5 minutes for manual telnet sessions
+    timeout server  300s
     server stalwart stalwart:10025 send-proxy-v2
 
+# Submission (Port 587) - normal timeout
 backend stalwart_submission
+    timeout client  60s
+    timeout server  60s
     server stalwart stalwart:10587 send-proxy-v2
 
+# SMTPS (Port 465) - normal timeout
 backend stalwart_submissions
+    timeout client  60s
+    timeout server  60s
     server stalwart stalwart:10465 send-proxy-v2
 
+# IMAP (Port 993) - very long timeout for IDLE support
 backend stalwart_imap
+    timeout client  3600s   # 1 hour for IMAP IDLE
+    timeout server  3600s
     server stalwart stalwart:10143 send-proxy-v2
 
+# POP3 (Port 995) - normal timeout
 backend stalwart_pop3
+    timeout client  60s
+    timeout server  60s
     server stalwart stalwart:10110 send-proxy-v2
 ```
 
@@ -130,7 +157,7 @@ backend stalwart_pop3
 10.10.0.2       stalwart
 ```
 
-### Stalwart-Konfiguration (config.toml oder Admin-UI)
+### Stalwart Configuration (config.toml or Admin UI)
 
 ```toml
 [server.listener.smtp]
@@ -174,37 +201,72 @@ trusted-networks.0 = "10.10.0.0/24"
 protocol = "PROXY"
 ```
 
+## ⏱️ Timeout Configuration Explained
+
+The HAProxy configuration uses service-specific timeouts to accommodate different use cases:
+
+| Service | Port | Timeout | Reason |
+|---------|------|---------|--------|
+| **SMTP** | 25 | 300s | Manual telnet testing, large email transfers |
+| **Submission** | 587 | 60s | Normal email submission |
+| **SMTPS** | 465 | 60s | Normal email submission (legacy) |
+| **IMAP** | 993 | 3600s | **IMAP IDLE** – keeps connection open for push notifications |
+| **POP3** | 995 | 60s | Short connections, fetch and disconnect |
+
+### Why Different Timeouts?
+
+- **IMAP IDLE** allows email clients (Thunderbird, iPhone Mail, Outlook) to receive push notifications without constantly polling. A longer timeout (1 hour or even 24 hours) keeps the connection alive.
+- **SMTP on port 25** needs a longer timeout for manual debugging with telnet. Writing a test email manually can take several minutes.
+- **POP3 and Submission** are designed for short, transaction-based connections – they don't benefit from long timeouts.
+
+### Adjusting IMAP Timeout for 24/7 IDLE
+
+If you want even longer IMAP IDLE support (e.g., for mobile devices that keep connections open overnight):
+
+```haproxy
+backend stalwart_imap
+    timeout client  86400s   # 24 hours
+    timeout server  86400s
+    server stalwart stalwart:10143 send-proxy-v2
+```
+
 ## 🚀 Installation
 
 ```bash
-# Volumes erstellen
+# Create volumes
 docker volume create stalwart-etc
 docker volume create stalwart-data
 
-# Repository klonen
+# Clone repository
 git clone https://github.com/yourname/stalwart-haproxy-docker
 cd stalwart-haproxy-docker
 
-# Container starten
+# Make scripts executable
+chmod +x scripts/*.sh
+
+# Run setup
+./scripts/setup.sh
+
+# Or start manually
 docker compose up -d
 
-# Stalwart Admin-Interface: https://your-domain:9443/admin
-# (Port 9443 muss entsprechend in der Compose ergänzt werden, falls gewünscht)
+# Stalwart Admin Interface: https://your-domain:9443/admin
+# (Add port 9443 to docker-compose.yml if needed)
 ```
 
-## ⚠️ Bekannte Probleme und Lösungen
+## ⚠️ Known Issues and Solutions
 
-### 1. HAProxy: Permission denied für Port 25
+### 1. HAProxy: Permission denied for port 25
 
-**Fehler:** `cannot bind socket (Permission denied) for [0.0.0.0:25]`
+**Error:** `cannot bind socket (Permission denied) for [0.0.0.0:25]`
 
-**Lösung:** Die Capability `NET_BIND_SERVICE` im Compose-File ergänzen (bereits enthalten).
+**Solution:** The capability `NET_BIND_SERVICE` is already included in the compose file.
 
 ### 2. Stalwart: 550 5.1.2 Relay not allowed
 
-**Problem:** Tritt auf, wenn man nicht den primären Domainnamen verwendet, sondern ein Alias. Die Aliase werden erst geladen, wenn der primäre Name genutzt wird.
+**Problem:** Occurs when using an alias domain instead of the primary domain name. Aliases are only loaded after the primary name is used.
 
-**Lösung:** Einmalig manuell mit telnet verbinden:
+**Solution:** Connect once manually via telnet:
 
 ```bash
 telnet your-server.com 25
@@ -214,61 +276,61 @@ RCPT TO: <primary-domain-name>
 QUIT
 ```
 
-Danach funktionieren alle Aliase – sie werden durch die primäre Domain-Abfrage geladen.
+After this, all aliases work – they are loaded by the primary domain query.
 
-### 3. SPF softfail mit 172.x.x.x
+### 3. SPF softfail with 172.x.x.x
 
-**Problem:** Docker-NAT verschleiert die echte Client-IP
+**Problem:** Docker NAT hides real client IPs
 
-**Lösung:** PROXY-Protokoll wie oben konfiguriert – dann sieht Stalwart die echte IP.
+**Solution:** PROXY protocol as configured above – Stalwart will see the real IP.
 
-### 4. Dynamische Docker-IPs wandern
+### 4. Dynamic Docker IPs keep changing
 
-**Problem:** `172.17.x.x`, `172.18.x.x` usw. ändern sich bei Restarts
+**Problem:** `172.17.x.x`, `172.18.x.x`, etc. change on every restart
 
-**Lösung:** Fester IP-Bereich über Docker IPAM (siehe Compose-File).
+**Solution:** Fixed IP range via Docker IPAM (see compose file).
 
-### 5. HAProxy findet Stalwart nicht (Host-Modus)
+### 5. HAProxy cannot find Stalwart (host mode)
 
-**Problem:** Im Host-Modus funktioniert der Docker-DNS (`127.0.0.11`) nicht
+**Problem:** In host mode, Docker DNS (`127.0.0.11`) doesn't work
 
-**Lösung:** `/etc/hosts` mounten (siehe oben).
+**Solution:** Mount `/etc/hosts` (see above).
 
-## 🔒 Sicherheitshinweise
+## 🔒 Security Notes
 
-- Interne Ports von Stalwart (10025, 10587, etc.) sind **nicht** exponiert
-- Nur HAProxy kommuniziert mit Stalwart über das isolierte Netzwerk
-- PROXY-Protokoll verhindert IP-Spoofing durch `trusted-networks`
-- Keine direkten eingehenden Verbindungen zu Stalwart möglich
+- Internal Stalwart ports (`10025`, `10587`, etc.) are **not** exposed
+- Only HAProxy communicates with Stalwart via the isolated network
+- PROXY protocol prevents IP spoofing through `trusted-networks`
+- No direct incoming connections to Stalwart possible
 
-## 📋 Voraussetzungen
+## 📋 Prerequisites
 
 - Docker & Docker Compose
-- Domain mit korrekten DNS-Einträgen (SPF, DKIM, DMARC)
-- **Netcup-spezifisch:** Port 25 in der Server-Firewall freigeben (seit Dezember 2025 standardmäßig blockiert)
-- Alternative DNS-Provider: Cloudflare (als Resolver), deSEC (als Hosting)
+- Domain with correct DNS records (SPF, DKIM, DMARC)
+- **Netcup-specific:** Allow port 25 in server firewall (blocked by default since December 2025)
+- Alternative DNS providers: Cloudflare (as resolver), deSEC (as hosting)
 
-## 🔄 Alternative DNS-Provider
+## 🔄 Alternative DNS Providers
 
-- **Cloudflare:** Schnelle DNS-Propagation, guter Resolver (`1.1.1.1`)
-- **deSEC:** Native Stalwart-Integration (ab v0.16)
-- **Netcup:** Manuelle DNS-Einträge oder API via Community-Tools
+- **Cloudflare:** Fast DNS propagation, good resolver (`1.1.1.1`)
+- **deSEC:** Native Stalwart integration (since v0.16)
+- **Netcup:** Manual DNS entries or API via community tools
 
-## 🐛 Fehlersuche
+## 🐛 Troubleshooting
 
-### Logs anzeigen
+### View logs
 ```bash
 docker compose logs haproxy
 docker compose logs stalwart
 ```
 
-### PROXY-Protokoll testen
+### Test PROXY protocol
 ```bash
 docker logs stalwart | grep -i "remoteIp"
-# Sollte echte Client-IP zeigen, nicht 172.x.x.x
+# Should show real client IP, not 172.x.x.x
 ```
 
-### SMTP direkt testen
+### Test SMTP directly
 ```bash
 telnet your-server.com 25
 EHLO test.com
@@ -282,13 +344,18 @@ Test message
 QUIT
 ```
 
-## 📚 Inspiration und Danksagung
+## 📚 Inspiration and Credits
 
-Dieses Setup basiert auf den Erfahrungen aus der Stalwart-Community, insbesondere den Diskussionen zu:
-- PROXY-Protokoll mit Docker und HAProxy
-- Netcup-spezifischen Eigenheiten (Port 25, DNS-API)
-- Dynamischen IP-Problemen in Docker-Netzwerken
+This setup is based on community experience from:
+- PROXY protocol with Docker and HAProxy
+- Netcup specifics (port 25, DNS API)
+- Dynamic IP issues in Docker networks
+- Deepseek wrote the README
 
-## 📄 Lizenz
+## 📄 License
 
 MIT
+
+---
+
+The scripts `scripts/setup.sh` and `scripts/backup.sh` are included in the repository. Make them executable with `chmod +x scripts/*.sh` before running.
