@@ -45,7 +45,7 @@ success "Volumes created/already available"
 # Check if config files are available
 test -f "./etc/hosts" || error "hosts file not available"
 test -f "./etc/haproxy/haproxy.cfg" || error "haproxy.cfg file not available"
-test -f "./docker-compose.yml" ] || error "docker-compose.yml not found!"
+test -f "./docker-compose.yml" || error "docker-compose.yml not found!"
 
 # Container starten
 echo ""
