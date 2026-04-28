@@ -4,7 +4,7 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 
 ## 🎯 The Problem
 
-- Stalwart in a Docker container behind a reverse proxy
+- Stalwart in a Docker container
 - Docker NAT hides real client IPs (SPF shows `softfail` with `172.x.x.x`, fail2ban inside the container will block that single address)
 - `network_mode: host` needed for HAProxy (real client IPs), but then Docker DNS is unavailable
 - Dynamic Docker IPs (`172.17.x.x`, `172.18.x.x`, ...) can change on every restart
@@ -13,9 +13,10 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 ## ✅ The Solution
 
 - **HAProxy** as TCP proxy with PROXY protocol v2 for SMTP, Submission, IMAP, POP3
-- **Fixed IP range** via Docker IPAM (e.g., `10.10.0.0/24`) – no more wandering IPs
+- **Fixed IP range** via Docker IPAM (e.g., `10.42.37.0/24`) – no more wandering IPs
 - **/etc/hosts mount** in HAProxy container for stable name resolution (bypasses Docker DNS in host mode)
 - **Trusted Networks** in Stalwart configured to the fixed IP range
+- **Lighttpd** (or *nginx*) as reverse proxy and HTTPS handler with working certificate right from start
 
 ## 📁 Repository Structure
 
@@ -34,7 +35,20 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 └── README.md
 ```
 
-### Stalwart Configuration (Admin UI)
+## Stalwart Configuration (Admin UI)
+
+When you start Stalwart the first time (e.g. with the `setup.sh` script), you
+go through three stages of configuration, the first two without the HAProxy,
+because the container is not ready yet for the send-proxy-v2 protocol.
+
+### Bootstrap
+
+Here, you only have to set your domain name, and get an actual admin account,
+not just the recovery account that does this setup.
+
+After this Bootstrap setup, you need to restart the container.
+
+### Initial Network Setup
 
 In Management -> Networks -> General scroll down to Proxy, Trusted Networks, and add those three:
 ```
@@ -42,6 +56,12 @@ In Management -> Networks -> General scroll down to Proxy, Trusted Networks, and
 fd00::/8
 10.0.0.0/8
 ```
+
+This enables the send-proxy-v2 protocol.  The three networks can possibly
+receive packets, but actually, since we pin the address of the container, we
+actually need only the last one.
+
+### Administration Setup
 
 ## ⏱️ Timeout Configuration Explained
 
@@ -75,10 +95,6 @@ backend stalwart_imap
 ## 🚀 Installation
 
 ```bash
-# Create volumes
-docker volume create stalwart-etc
-docker volume create stalwart-data
-
 # Clone repository
 git clone https://github.com/forthy42/stalwart-haproxy-docker
 cd stalwart-haproxy-docker
@@ -88,23 +104,12 @@ chmod +x scripts/*.sh
 
 # Run setup
 ./scripts/setup.sh
-
-# Or start manually
-docker compose up -d
-
-# Stalwart Admin Interface: https://your-domain:9443/admin
-# (Add port 9443 to docker-compose.yml if needed)
 ```
+Stalwart Admin Interface: https://mail.<your-domain>/admin
 
 ## ⚠️ Known Issues and Solutions
 
-### 1. HAProxy: Permission denied for port 25
-
-**Error:** `cannot bind socket (Permission denied) for [0.0.0.0:25]`
-
-**Solution:** The capability `NET_BIND_SERVICE` is already included in the compose file.
-
-### 2. Stalwart: 550 5.1.2 Relay not allowed
+### 1. Stalwart: 550 5.1.2 Relay not allowed
 
 **Problem:** Occurs when using an alias domain instead of the primary domain name. Aliases are only loaded after the primary name is used.
 
@@ -112,50 +117,61 @@ docker compose up -d
 
 ```bash
 telnet your-server.com 25
-EHLO test.de
-MAIL FROM: <test@test.de>
-RCPT TO: <primary-domain-name>
+EHLO example.org
+MAIL FROM: <example@example.org>
+RCPT TO: <somenone@primary-domain-name>
 QUIT
 ```
 
 After this, all aliases work – they are loaded by the primary domain query.
 
-### 3. SPF softfail with 172.x.x.x
+### 2. SPF softfail with 172.x.x.x
 
 **Problem:** Docker NAT hides real client IPs
 
 **Solution:** PROXY protocol as configured above – Stalwart will see the real IP.
 
-### 4. Dynamic Docker IPs keep changing
+### 3. Dynamic Docker IPs keep changing
 
 **Problem:** `172.17.x.x`, `172.18.x.x`, etc. change on every restart
 
 **Solution:** Fixed IP range via Docker IPAM (see compose file).
 
-### 5. HAProxy cannot find Stalwart (host mode)
+### 4. HAProxy cannot find Stalwart (host mode)
 
 **Problem:** In host mode, Docker DNS (`127.0.0.11`) doesn't work
 
-**Solution:** Mount `/etc/hosts` (see above).
+**Solution:** Pin Stalwart container to address 10.42.37.2 and mount `/etc/hosts`
+
+### 5. Web connection during setup “not secure”
+
+Browsers nowadays deny sending a password to a server that has no secure
+connection.  So neither the http-only access through Stalwart's native port
+8080 is feasible, nor the access through port 443, because there, you get a
+self-signed certificate.
+
+Once you install a propper certificate, the access through port 443 (mapped to
+9443) is possible.
 
 ## 🔒 Security Notes
 
-- Internal Stalwart ports (`10025`, `10587`, etc.) are **not** exposed
+- Internal Stalwart ports (`25`, `587`, etc.) are **not** exposed
 - Only HAProxy communicates with Stalwart via the isolated network
 - PROXY protocol prevents IP spoofing through `trusted-networks`
+- Lighttpd is used as frontend for the web, using the `Forward:` protocol
 - No direct incoming connections to Stalwart possible
 
 ## 📋 Prerequisites
 
 - Docker & Docker Compose
-- Domain with correct DNS records (SPF, DKIM, DMARC)
+- Domain with correct DNS records (SPF, DKIM, DMARC) — Stalwart will create the entries for you
 - **Netcup-specific:** Allow port 25 in server firewall (blocked by default since December 2025)
-- Alternative DNS providers: Cloudflare (as resolver), deSEC (as hosting)
+- Alternative DNS providers: Cloudflare (as hosting and/or resolver), deSEC (as hosting)
 
 ## 🔄 Alternative DNS Providers
 
-- **Cloudflare:** Fast DNS propagation, good resolver (`1.1.1.1`)
-- **deSEC:** Native Stalwart integration (since v0.16)
+- **Cloudflare:** Fast DNS propagation, good resolver (`1.1.1.1`), native Stalwart integration (since v0.16) as hoster
+- **deSEC:** Native Stalwart integration (since v0.16) as hoster
 - **Netcup:** Manual DNS entries or API via community tools
 
 ## 🐛 Troubleshooting
