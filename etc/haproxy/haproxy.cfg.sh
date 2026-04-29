@@ -68,13 +68,14 @@ EOF
 FIELDS=fields
 FIRSTRUN=.true.
 
+echo "📋 Containing services:"
 # parse table line (skip header)
 while IFS=',' read -r $FIELDS; do
     if [ $FIRSTRUN ]
     then
 	FIELDS=${fields//,/ }
 	FIRSTRUN=""
-	ok "Extract: $FIELDS"
+	ok "Fields: $FIELDS"
     else
 	eval "$(trim_vars $FIELDS)"
 
@@ -82,30 +83,30 @@ while IFS=',' read -r $FIELDS; do
 	if [ -z "$name" ] || [ -z "$inc_port" ]; then
             continue
 	fi
-
+	ok "Service $name"
 	# generate frontend and backend, all in one single heredoc
 	cat << EOF
 frontend ${name}_in
     default_backend stalwart_${name}
-$(if [ -n "$ipv4_bind" ]; then
-            if [ "$ipv4_bind" = "*" ]; then
+$(if [ -n "${ipv4_bind}" ]; then
+            if [ "${ipv4_bind}" = "*" ]; then
 		echo "    bind :${inc_port}"
             else
 		echo "    bind ${ipv4_bind}:${inc_port}"
             fi
 	fi
-	if [ -n "$ipv6_bind" ]; then
-            if [ "$ipv6_bind" = "::" ]; then
+	if [ -n "${ipv6_bind}" ]; then
+            if [ "${ipv6_bind}" = "::" ]; then
 		echo "    bind :::${inc_port}"
             else
 		echo "    bind [${ipv6_bind}]:${inc_port}"
             fi
 	fi)
-$(test -n "$client_to" && echo "    timeout client ${client_to}")
+$(test -n "${client_to}" && echo "    timeout client ${client_to}")
 
 backend stalwart_${name}
     server stalwart stalwart-mail:${fwd_port} send-proxy-v2
-$(test -n "$server_to" && echo "    timeout server ${server_to}")
+$(test -n "${server_to}" && echo "    timeout server ${server_to}")
 
 EOF
     fi
@@ -118,5 +119,3 @@ test ! -z "$(dirname "$OUTPUT_CFG")" && mkdir -p "$(dirname "$OUTPUT_CFG")"
 cp "$TEMP_FILE" "$OUTPUT_CFG" || error "Can't copy generated file to $OUTPUT_CFG"
 
 ok "generated HAProxy-Config: $OUTPUT_CFG"
-echo "📋 Containing services:"
-tail -n +2 "$INPUT_CSV" | cut -d',' -f1 | grep -v '^$' | sed 's/^/   - /'
