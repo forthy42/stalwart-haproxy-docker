@@ -23,6 +23,7 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 ```
 .
 ├── docker-compose.yml
+├── makefile
 ├── etc/
 │   ├── haproxy/
 │   │   ├── haproxy.cfg.sh
@@ -36,6 +37,14 @@ A complete, production-ready Docker configuration for Stalwart Mailserver behind
 │   └── 9-mail.conf
 └── README.md
 ```
+
+## HAProxy Configuration
+
+The `haproxy.cfg` should usually be fine.  If not: the config is generated from
+`services.csv`, so if you want to change port mappings, edit this file, and
+then regenerate `haproxy.cfg` by typing `make` in the project root.
+
+This approach is likely less error-prone.
 
 ## Stalwart Configuration (Admin UI)
 
