@@ -83,16 +83,17 @@ while IFS=',' read -r $FIELDS; do
             continue
 	fi
 
-	# IPv4 bind (if not empty)
-	BIND_LINES=$(if [ -n "$ipv4_bind" ]; then
+	# generate frontend and backend, all in one single heredoc
+	cat << EOF
+frontend ${name}_in
+    default_backend stalwart_${name}
+$(if [ -n "$ipv4_bind" ]; then
             if [ "$ipv4_bind" = "*" ]; then
 		echo "    bind :${inc_port}"
             else
 		echo "    bind ${ipv4_bind}:${inc_port}"
             fi
 	fi
-    
-	# IPv6 bind
 	if [ -n "$ipv6_bind" ]; then
             if [ "$ipv6_bind" = "::" ]; then
 		echo "    bind :::${inc_port}"
@@ -100,20 +101,11 @@ while IFS=',' read -r $FIELDS; do
 		echo "    bind [${ipv6_bind}]:${inc_port}"
             fi
 	fi)
-
-	timeout_client=$(test -n "$client_to" && echo "    timeout client ${client_to}")
-	timeout_server=$(test -n "$server_to" && echo "    timeout server ${server_to}")
-
-	# generate frontend and backend, all in one single heredoc
-	cat << EOF
-frontend ${name}_in
-${BIND_LINES}
-${timeout_client}
-    default_backend stalwart_${name}
+$(test -n "$client_to" && echo "    timeout client ${client_to}")
 
 backend stalwart_${name}
-${timeout_server}
     server stalwart stalwart-mail:${fwd_port} send-proxy-v2
+$(test -n "$server_to" && echo "    timeout server ${server_to}")
 
 EOF
     fi
