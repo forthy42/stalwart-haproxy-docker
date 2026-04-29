@@ -24,7 +24,7 @@ trim_vars() {
     for var in "${vars[@]}"; do
         # trim variable
         local trimmed=$(echo "${!var}" | xargs)
-        echo "$var=\"$trimmed\""
+        declare -g $var="$trimmed"
     done
 }
 
@@ -77,7 +77,7 @@ while IFS=',' read -r $FIELDS; do
 	FIRSTRUN=""
 	ok "Fields: $FIELDS"
     else
-	eval "$(trim_vars $FIELDS)"
+	trim_vars $FIELDS
 
 	# only handle valid lines
 	if [ -z "$name" ] || [ -z "$inc_port" ]; then
