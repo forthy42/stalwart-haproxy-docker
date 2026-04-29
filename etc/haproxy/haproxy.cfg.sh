@@ -110,7 +110,7 @@ $(test -n "${server_to}" && echo "    timeout server ${server_to}")
 
 EOF
     fi
-done < <(cat "$INPUT_CSV") >> "$TEMP_FILE"
+done < "$INPUT_CSV" >> "$TEMP_FILE"
 
 # create output directory, if needed
 test ! -z "$(dirname "$OUTPUT_CFG")" && mkdir -p "$(dirname "$OUTPUT_CFG")"
