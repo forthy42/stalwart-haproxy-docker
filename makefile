@@ -12,12 +12,12 @@ HOSTS = etc/hosts
 # Konfiguration generieren
 all: validate
 
-generate-config: $(CSV_FILE) $(HAPROXY_SH)
+$(HAPROXY_CFG): $(CSV_FILE) $(HAPROXY_SH)
 	@echo "🔧 Generiere HAProxy-Konfiguration..."
 	@./$(HAPROXY_SH) $(CSV_FILE) $(HAPROXY_CFG)
 
 # HAProxy-Config validieren (erfordert laufenden Docker)
-validate: generate-config
+validate: $(HAPROXY_CFG)
 	@echo "🔍 Validiere HAProxy-Konfiguration..."
 	@docker run --rm -v ./$(HAPROXY_CFG):/usr/local/etc/haproxy/haproxy.cfg haproxy:alpine -v ./$(HOSTS):/etc/hosts haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
 
