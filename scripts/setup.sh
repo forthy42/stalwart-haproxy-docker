@@ -16,31 +16,24 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Error handling function
-error() {
-    echo -e "${RED}❌ ERROR: $*${NC}" >&2
-    exit 1
-}
-success() {
-    echo -e "${GREEN}✅ $*${NC}"
-}
-warn() {
-    echo -e "${YELLOW}⚠️ $*${NC}"
-}
+error() { echo -e "${RED}❌ ERROR: $1${NC}" >&2; exit 1; }
+warn()  { echo -e "${YELLOW}⚠️  WARNING: $1${NC}" >&2; }
+ok()    { echo -e "${GREEN}✅ $1${NC}" >&2; }
 
 # Check if docker runs
 docker info > /dev/null 2>&1 || error "Docker doesn't run. Please start docker and retry."
-success "Docker runs"
+ok "Docker runs"
 
 # Check if docker compose is available
 docker compose version > /dev/null 2>&1 || error "Docker Compose not available. Please install"
-success "Docker Compose available"
+ok "Docker Compose available"
 
 # Create volumes if available
 echo ""
 echo "📦 Create Docker Volumes..."
 docker volume create stalwart-etc > /dev/null 2>&1 || true
 docker volume create stalwart-data > /dev/null 2>&1 || true
-success "Volumes created/already available"
+ok "Volumes created/already available"
 
 # Check if lighttpd file is available
 echo ""
@@ -65,7 +58,7 @@ echo "   4. Stop the container with ^C here"
 docker run --name stalwart -it \
        -v stalwart-etc:/etc/stalwart \
        -v stalwart-data:/var/lib/stalwart \
-       -p 9080:8080 stalwartlabs/stalwart:latest || success "setup done"
+       -p 9080:8080 stalwartlabs/stalwart:latest || ok "setup done"
 
 docker rm stalwart || warn "Can't remove temporary container"
 
@@ -77,7 +70,7 @@ echo "   2. Network -> General -> Proxy Trusted Networks 10.0.0.0/8 172.16.0.0/1
 docker run --name stalwart -it \
        -v stalwart-etc:/etc/stalwart \
        -v stalwart-data:/var/lib/stalwart \
-       -p 9080:8080 stalwartlabs/stalwart:latest || success "config done"
+       -p 9080:8080 stalwartlabs/stalwart:latest || ok "config done"
 docker rm stalwart || warn "Can't remove temporary container"
 
 # Container starten
@@ -86,7 +79,7 @@ echo "🐳 Start Container with proxy..."
 docker compose up -d
 
 echo ""
-success "Setup completed!"
+ok "Setup completed!"
 echo ""
 echo "📋 Next Steps:"
 echo "   1. Configure Domains and users"

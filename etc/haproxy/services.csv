@@ -1,4 +1,4 @@
-name,incoming_port,forwarded_port,client_timeout,server_timeout,ipv4_bind,ipv6_bind,protocol
+name,inc_port,fwd_port,client_to,server_to,ipv4_bind,ipv6_bind,protocol
 smtp,25,25,300s,300s,*,::,smtp
 submission,587,587,60s,60s,*,::,submission
 submissions,465,465,60s,60s,*,::,smtps
