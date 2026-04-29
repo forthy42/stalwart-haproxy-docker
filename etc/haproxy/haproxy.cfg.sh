@@ -106,18 +106,10 @@ while IFS=',' read -r $FIELDS; do
 
 	# generate frontend and backend, all in one single heredoc
 	cat << EOF
-# ---------------------------------------------------------------------
-# FRONTEND (Client side timeouts)
-# ---------------------------------------------------------------------
-
 frontend ${name}_in
 ${BIND_LINES}
 ${timeout_client}
     default_backend stalwart_${name}
-
-# ---------------------------------------------------------------------
-# BACKENDS (server side timeout)
-# ---------------------------------------------------------------------
 
 backend stalwart_${name}
 ${timeout_server}
