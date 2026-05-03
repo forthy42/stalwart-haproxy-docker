@@ -1,10 +1,10 @@
 name,inc_port,fwd_port,client_to,server_to,ipv4_bind,ipv6_bind,protocol
 smtp,25,25,300s,300s,*,::,smtp
-submission,587,587,60s,60s,*,::,submission
+#submission,587,587,60s,60s,*,::,submission
 submissions,465,465,60s,60s,*,::,smtps
-imap,143,143,60s,60s,*,::,imap
+#imap,143,143,60s,60s,*,::,imap
 imaps,993,993,3600s,3600s,*,::,imaps
-pop3,110,110,60s,60s,*,::,pop3
+#pop3,110,110,60s,60s,*,::,pop3
 pop3s,995,995,60s,60s,*,::,pop3s
 sieve,4190,4190,60s,60s,*,::,sieve
 http,9080,8080,300s,300s,127.0.0.1,,http

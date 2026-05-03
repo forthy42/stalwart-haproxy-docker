@@ -80,9 +80,17 @@ while IFS=',' read -r $FIELDS; do
 	trim_vars $FIELDS
 
 	# only handle valid lines
-	if [ -z "$name" ] || [ -z "$inc_port" ]; then
-            continue
-	fi
+	case "$name" in
+	    '')
+		continue
+		;;
+	    '#'*)
+		continue
+		;;
+	    *)
+		test -z "$inc_port" && continue
+		;;
+	esac
 	ok "Service $name"
 	# generate frontend and backend, all in one single heredoc
 	cat << EOF
