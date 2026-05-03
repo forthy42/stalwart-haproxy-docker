@@ -79,18 +79,9 @@ while IFS=',' read -r $FIELDS; do
     else
 	trim_vars $FIELDS
 
-	# only handle valid lines
-	case "$name" in
-	    '')
-		continue
-		;;
-	    '#'*)
-		continue
-		;;
-	    *)
-		test -z "$inc_port" && continue
-		;;
-	esac
+	# only handle valid lines, name empty, starts with '#',
+	# or no inc_port is invalid
+	[[ "$name" =~ ^#|^$ || "$inc_port" == "" ]] && continue
 	ok "Service $name"
 	# generate frontend and backend, all in one single heredoc
 	cat << EOF
