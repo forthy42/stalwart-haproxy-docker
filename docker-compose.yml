@@ -21,13 +21,15 @@ services:
     volumes:
       - stalwart-etc:/etc/stalwart
       - stalwart-data:/var/lib/stalwart
-      - ./log:/var/log/stalwart
+      - stalwart-log:/var/log/stalwart
     # No ports - Stalwart is only reachable internally
 
 volumes:
   stalwart-etc:
     external: true
   stalwart-data:
+    external: true
+  stalwart-log:
     external: true
 
 networks:
