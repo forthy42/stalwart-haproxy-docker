@@ -33,6 +33,7 @@ echo ""
 echo "📦 Create Docker Volumes..."
 docker volume create stalwart-etc > /dev/null 2>&1 || true
 docker volume create stalwart-data > /dev/null 2>&1 || true
+docker volume create stalwart-log > /dev/null 2>&1 || true
 ok "Volumes created/already available"
 
 # Check if lighttpd file is available
