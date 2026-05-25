@@ -42,7 +42,14 @@ echo "🐳 Setup lighttpd reverse proxy..."
 test -f "./lighttpd/9-mail.conf" || error "lighttpd config not available"
 systemctl status lighttpd.service > /dev/null 2>&1 || error "lighttpd not running"
 cp ./lighttpd/9-mail.conf /etc/lighttpd/conf-available || error "copy failed"
-lighty-enable-mod mail || error "failed to enable mail module"
+lighty-enable-mod mail || case $? in
+    1)
+	error "failed to enable mail module"
+	;;
+    2)
+	warn "hickup while trying to enable mail module"
+	;;
+esac
 systemctl restart lighttpd.service || error "lighttpd failed to restart"
 
 # Check if config files are available
