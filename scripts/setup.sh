@@ -12,21 +12,26 @@ echo ""
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
 # Error handling function
 error() { echo -e "${RED}❌ ERROR: $1${NC}" >&2; exit 1; }
 warn()  { echo -e "${YELLOW}⚠️  WARNING: $1${NC}" >&2; }
 ok()    { echo -e "${GREEN}✅ $1${NC}" >&2; }
-
+try() { # cmd ok fail warn
+    eval "$1"
+    case $? in
+        0) ok "$2" ;;
+        2) warn "$4" && return 2 ;;
+        *) error "$3" ;;
+    esac
+}
 # Check if docker runs
-docker info > /dev/null 2>&1 || error "Docker doesn't run. Please start docker and retry."
-ok "Docker runs"
+try "docker info > /dev/null 2>&1" "Docker runs" "Docker doesn't run. Please start docker and retry." ""
 
 # Check if docker compose is available
-docker compose version > /dev/null 2>&1 || error "Docker Compose not available. Please install"
-ok "Docker Compose available"
+try "docker compose version > /dev/null 2>&1" "Docker Compose Available" "Docker Compose not available. Please install" ""
 
 # Create volumes if available
 echo ""
@@ -42,14 +47,7 @@ echo "🐳 Setup lighttpd reverse proxy..."
 test -f "./lighttpd/9-mail.conf" || error "lighttpd config not available"
 systemctl status lighttpd.service > /dev/null 2>&1 || error "lighttpd not running"
 cp ./lighttpd/9-mail.conf /etc/lighttpd/conf-available || error "copy failed"
-lighty-enable-mod mail || case $? in
-    1)
-	error "failed to enable mail module"
-	;;
-    2)
-	warn "hickup while trying to enable mail module"
-	;;
-esac
+try "lighty-enable-mod mail" "enabled lighty module mail" "failed to enable mail module" "hickup while trying to enable mail module"
 systemctl restart lighttpd.service || error "lighttpd failed to restart"
 
 # Check if config files are available
